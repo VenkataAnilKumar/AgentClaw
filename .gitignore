@@ -41,6 +41,10 @@ Thumbs.db
 # Claude Code / AI tool local settings
 .claude/
 
+# Internal AI copilot context — not for public repo
+COPILOT_CONTEXT.md
+docs/COPILOT_PROMPT*.md
+
 # Logs
 logs/
 *.log
