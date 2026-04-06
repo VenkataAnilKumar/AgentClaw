@@ -1,0 +1,39 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: agentclaw-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: agentclaw
+      POSTGRES_USER: agentclaw
+      POSTGRES_PASSWORD: agentclaw
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U agentclaw -d agentclaw']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    image: node:22-alpine
+    container_name: agentclaw-server
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "corepack enable && corepack pnpm install --frozen-lockfile && corepack pnpm --filter @agentclaw/server start"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./:/app
+
+volumes:
+  postgres_data:

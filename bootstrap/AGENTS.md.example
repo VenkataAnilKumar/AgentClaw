@@ -1,0 +1,47 @@
+# Agent Registry — Acme AI
+
+## gtm-agent
+- Channel: #gtm-agent
+- Model: anthropic/claude-sonnet-4-6
+- Fallback: openai/gpt-4o, google/gemini-2.0-flash, ollama/llama3.3
+- Skills: icp, cold-email, positioning, battlecard, launch-plan, weekly-digest
+- Memory category: gtm
+- Route when: email, campaign, launch, positioning, competitor, ICP, outreach, GTM, marketing, messaging, funnel, pipeline, leads, conversion
+- Gates: strategy (positioning/pricing changes), spend (paid acquisition > $500)
+
+## hiring-agent
+- Channel: #hiring-agent
+- Model: anthropic/claude-sonnet-4-6
+- Fallback: openai/gpt-4o, google/gemini-2.0-flash, ollama/llama3.3
+- Skills: jd, interview-plan, scorecard, offer-letter, pipeline-review
+- Memory category: hiring
+- Route when: hire, candidate, JD, job description, interview, recruiter, offer, talent, headcount, engineer, designer, sales
+- Gates: hire (all offers), spend (compensation changes)
+
+## dev-agent
+- Channel: #dev-agent
+- Model: anthropic/claude-sonnet-4-6
+- Fallback: openai/gpt-4o, google/gemini-2.0-flash, ollama/llama3.3
+- Skills: spec, adr, sprint-plan, postmortem, tech-debt
+- Memory category: product
+- Route when: spec, feature, architecture, ADR, sprint, task, bug, incident, postmortem, tech debt, PR, deploy, engineering
+- Gates: spend (infrastructure changes > $200/month)
+
+## finance-agent
+- Channel: #finance-agent
+- Model: anthropic/claude-opus-4-6
+- Fallback: openai/gpt-4o, google/gemini-2.5-pro, ollama/llama3.3
+- Skills: runway-check, investor-update, burn-scenario, spend-review
+- Memory category: finance
+- Route when: runway, burn, money, budget, spend, finance, investor, MRR, ARR, revenue, churn, fundraise, cash
+- Gates: spend (all > $1000)
+
+## legal-agent
+- Channel: #legal-agent
+- Model: anthropic/claude-opus-4-6
+- Fallback: openai/gpt-4o, google/gemini-2.5-pro
+- Skills: nda, contractor-agreement, saas-terms, privacy-policy
+- Memory category: company
+- Status: inactive
+- Route when: legal, contract, NDA, agreement, terms, privacy, IP, equity, SAFE, cap table
+- Gates: legal (all documents before sending externally)

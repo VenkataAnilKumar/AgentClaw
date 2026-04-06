@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Environment — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Downloaded open-source sources (user downloads these manually)
+# See _sources/README.md for instructions
+_sources/
+
+# Build output
+dist/
+build/
+*.js.map
+packages/*/dist/
+
+# TypeScript cache
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code / AI tool local settings
+.claude/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+
+# Test coverage
+coverage/
+.nyc_output/

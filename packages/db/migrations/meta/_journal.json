@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1775505669036,
+      "tag": "0000_slimy_guardian",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775506781567,
+      "tag": "0001_cheerful_blue_blade",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1744070400000,
+      "tag": "0002_phase3_skills_registry",
+      "breakpoints": true
+    }
+  ]
+}

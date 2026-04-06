@@ -1,0 +1,33 @@
+# Team — Acme AI
+
+## Humans
+
+| Name | Role | Slack Handle | AgentClaw Role | Can Approve |
+|---|---|---|---|---|
+| Venkat R. | CEO / Co-founder | @venkat | owner | all gates |
+| Priya S. | CTO / Co-founder | @priya | admin | strategy, spend, hire |
+| James K. | Engineer | @james | member | strategy only |
+
+## Gate Approval Matrix
+
+| Gate Type | Who Can Approve |
+|---|---|
+| strategy | owner, admin |
+| spend | owner, admin |
+| hire | owner only |
+| legal | owner only |
+
+## Active Agents
+
+| Agent | Slack Channel | Status |
+|---|---|---|
+| gtm-agent | #gtm-agent | active |
+| hiring-agent | #hiring-agent | active |
+| dev-agent | #dev-agent | active |
+| finance-agent | #finance-agent | active |
+| legal-agent | #legal-agent | inactive |
+
+## Notification Preferences
+- Founder digests: #founders (CEO + CTO only)
+- Team updates: #team-updates (all team)
+- Gate approvals: DM to approvers + original channel

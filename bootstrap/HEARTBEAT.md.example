@@ -1,0 +1,29 @@
+# Heartbeat Schedule — Acme AI
+
+## Weekly GTM Digest
+- agent: gtm-agent
+- skill: weekly-digest
+- schedule: "0 9 * * 1"
+- channel: "#team-updates"
+- description: Every Monday 9am — summarize GTM activity and set weekly priorities
+
+## Daily Runway Check
+- agent: finance-agent
+- skill: runway-check
+- schedule: "0 8 * * *"
+- channel: "#founders"
+- description: Every day 8am — check runway and flag if < 12 months
+
+## Weekly Hiring Pipeline Review
+- agent: hiring-agent
+- skill: pipeline-review
+- schedule: "0 10 * * 2"
+- channel: "#hiring-agent"
+- description: Every Tuesday 10am — review candidate pipeline and flag stale conversations
+
+## Bi-weekly Investor Update Draft
+- agent: finance-agent
+- skill: investor-update
+- schedule: "0 9 1 * *"
+- channel: "#founders"
+- description: First day of each month — draft investor update for review

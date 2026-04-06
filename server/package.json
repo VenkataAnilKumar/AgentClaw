@@ -1,0 +1,29 @@
+{
+  "name": "@agentclaw/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@agentclaw/db": "workspace:*",
+    "@agentclaw/llm": "workspace:*",
+    "@agentclaw/runtime": "workspace:*",
+    "@agentclaw/skills-registry": "workspace:*",
+    "@agentclaw/slack": "workspace:*",
+    "@slack/bolt": "^4.1.0",
+    "drizzle-orm": "^0.38.4",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.18.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
