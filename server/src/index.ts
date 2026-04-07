@@ -2,7 +2,8 @@ import express from 'express';
 import { App as SlackApp, ExpressReceiver } from '@slack/bolt';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 
-import { db } from '@agentclaw/db';
+import pino from 'pino';
+import { companies, db } from '@agentclaw/db';
 import { runWithFallback } from '@agentclaw/llm';
 import {
   configureAgentRunner,
@@ -13,6 +14,9 @@ import {
   loadBootstrap,
   runAgent,
   SkillRegistryService,
+  TeamMemberService,
+  CostService,
+  ActivityFeedService,
 } from '@agentclaw/runtime';
 import { findSkill } from '@agentclaw/skills-registry';
 import {
@@ -21,9 +25,18 @@ import {
   registerInstallModalHandler,
   registerSlashCommandHandler,
 } from '@agentclaw/slack';
+import { eq } from 'drizzle-orm';
+import { slackInstallations } from '@agentclaw/db';
+import { registerOAuthRoutes, resolveCompanyIdByTeamId } from './routes/oauth.js';
+import { registerMemoryRoutes } from './routes/memory.js';
+import { registerActivityRoutes } from './routes/activity.js';
+import { registerCostRoutes } from './routes/costs.js';
+import { CompanyRateLimiter } from './middleware/rate-limit.js';
 
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10);
 const migrationsFolder = process.env.DB_MIGRATIONS_PATH ?? 'packages/db/migrations';
+const startedAtMs = Date.now();
+const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
 function requireApiKey(
   req: express.Request,
@@ -45,6 +58,10 @@ async function main(): Promise<void> {
 
   const gateManager = new GateManager();
   const registry = new SkillRegistryService();
+  const teamMembers = new TeamMemberService();
+  const costs = new CostService();
+  const activity = new ActivityFeedService();
+  const rateLimiter = new CompanyRateLimiter();
 
   configureAgentRunner({
     bootstrapSourceForCompany: (companyId: string) => {
@@ -61,26 +78,44 @@ async function main(): Promise<void> {
   });
 
   const slack = new SlackApp({
-    token: process.env.SLACK_BOT_TOKEN,
-    appToken: process.env.SLACK_APP_TOKEN,
-    socketMode: Boolean(process.env.SLACK_APP_TOKEN),
     receiver,
+    authorize: async ({ teamId }) => {
+      if (!teamId) {
+        throw new Error('Missing teamId in Slack authorize context');
+      }
+      const install = await db.query.slackInstallations.findFirst({
+        where: eq(slackInstallations.teamId, teamId),
+      });
+      if (!install) {
+        throw new Error(`No Slack installation found for team ${teamId}`);
+      }
+      return {
+        botToken: install.botToken,
+        botUserId: install.botUserId ?? undefined,
+      };
+    },
   });
 
   registerSlashCommandHandler(slack, {
     runAgent,
     streamAgent: (params) => streamAgent(params),
     registry,
+    teamMembers,
+    costs,
+    activity,
+    rateLimitCheck: (companyId, type) => rateLimiter.checkAndConsume(companyId, type),
+    acquireRunSlot: (companyId) => rateLimiter.acquireAgentRunSlot(companyId),
+    resolveCompanyId: resolveCompanyIdByTeamId,
   });
 
   registerGateActions(slack, gateManager);
-  registerInstallModalHandler(slack, registry);
+  registerInstallModalHandler(slack, registry, resolveCompanyIdByTeamId);
   registerHomeTabHandler(slack, async () => ({
     memoryItems: ['Memory panel wiring in progress'],
     activeAgents: ['gtm-agent', 'hiring-agent', 'dev-agent'],
     recentRuns: ['No runs yet'],
     pendingGates: ['None'],
-  }), registry);
+  }), registry, resolveCompanyIdByTeamId, teamMembers);
 
   const heartbeat = new HeartbeatScheduler(
     async ({ companyId, agentName, skillName }) => {
@@ -117,9 +152,38 @@ async function main(): Promise<void> {
 
   const app = express();
   app.use(express.json());
+  app.use('/api/memory', requireApiKey);
+  app.use('/api/activity', requireApiKey);
+  app.use('/api/costs', requireApiKey);
+  registerOAuthRoutes(app);
+  registerMemoryRoutes(app, resolveCompanyIdByTeamId);
+  registerActivityRoutes(app, resolveCompanyIdByTeamId);
+  registerCostRoutes(app, resolveCompanyIdByTeamId);
   app.use('/slack/events', receiver.router);
   app.get('/health', (_req, res) => {
-    res.status(200).json({ ok: true });
+    void (async () => {
+      const slackInstalled = await db.query.slackInstallations.findFirst();
+      const companyCount = await db
+        .select({ id: companies.id })
+        .from(companies)
+        .then((rows) => rows.length);
+
+      res.status(200).json({
+        ok: true,
+        db: 'ok',
+        slack: slackInstalled ? 'ok' : 'not_installed',
+        providers: {
+          anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
+          openai: Boolean(process.env.OPENAI_API_KEY),
+          ollama: true,
+        },
+        companyCount,
+        uptimeSeconds: Math.floor((Date.now() - startedAtMs) / 1000),
+      });
+    })().catch((error) => {
+      logger.error({ error }, 'health check failed');
+      res.status(500).json({ ok: false, error: String(error) });
+    });
   });
 
   // ── Skills Marketplace REST API ───────────────────────────────────────────
@@ -150,6 +214,10 @@ async function main(): Promise<void> {
       res.status(400).json({ error: 'companyId and skillName are required' });
       return;
     }
+    if (!rateLimiter.checkAndConsume(companyId, 'skillInstall')) {
+      res.status(429).json({ error: 'Skill install rate limit reached for this company' });
+      return;
+    }
     const record = await registry.install(companyId, skillName, secrets ?? {});
     res.json({ installed: record });
   });
@@ -163,7 +231,7 @@ async function main(): Promise<void> {
   });
 
   app.listen(PORT, () => {
-    console.log(`AgentClaw server listening on ${PORT}`);
+    logger.info({ port: PORT }, 'AgentClaw server listening');
   });
 }
 
@@ -192,6 +260,6 @@ async function* streamAgent(params: {
 }
 
 main().catch((error) => {
-  console.error('Server startup failed', error);
+  logger.error({ error }, 'Server startup failed');
   process.exit(1);
 });

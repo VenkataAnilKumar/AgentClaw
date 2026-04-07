@@ -1,4 +1,4 @@
-import { runWithFallback } from '@agentclaw/llm';
+import { estimateCostUsd, runWithFallback } from '@agentclaw/llm';
 import {
   artifacts as artifactsTable,
   db,
@@ -14,6 +14,7 @@ import type {
   SkillIntegrationType,
 } from '@agentclaw/shared';
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import pino from 'pino';
 
 import { loadBootstrap, type BootstrapSource } from './bootstrap/loader.js';
 import { GateManager } from './gates/gate-manager.js';
@@ -21,8 +22,11 @@ import { buildPrompt } from './llm/prompt-builder.js';
 import { parseModelOutput } from './llm/output-parser.js';
 import { AgentMemory, TeamMemory } from './memory/index.js';
 import { SkillRegistryService } from './skills/registry-service.js';
+import { ActivityFeedService } from './activity/feed-service.js';
+import { CostService } from './costs/cost-service.js';
 
 const DEFAULT_MODEL = process.env.DEFAULT_MODEL ?? 'anthropic/claude-sonnet-4-6';
+const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 
 export type AgentRunnerParams = {
   companyId: string;
@@ -58,6 +62,19 @@ export async function runAgent(params: AgentRunnerParams): Promise<AgentRunResul
   }
 
   const skill = resolveSkill(params.skillName, bootstrap.skills, agent);
+  const activity = new ActivityFeedService();
+
+  logger.info(
+    {
+      companyId: params.companyId,
+      agent: agent.name,
+      skill: skill.name,
+      userId: params.slackContext.userId,
+    },
+    'agent.run.start',
+  );
+
+  try {
   const teamMemoryStore = new TeamMemory(params.companyId);
   const agentMemoryStore = new AgentMemory(params.companyId, agent.name);
 
@@ -89,9 +106,18 @@ export async function runAgent(params: AgentRunnerParams): Promise<AgentRunResul
     liveIntegrationData,
   });
 
+  const isHeartbeat = params.slackContext.userId === 'heartbeat';
+  const costs = new CostService();
+  const budget = await costs.checkBudget(params.companyId, isHeartbeat);
+  if (budget.blocked) {
+    throw new Error('Monthly LLM budget exceeded. Non-HEARTBEAT runs are blocked.');
+  }
+
   const primaryModel = agent.model ?? DEFAULT_MODEL;
   const fallbacks = agent.fallback ?? [];
   const llmResult = await runWithFallback(primaryModel, fallbacks, prompt.system, prompt.user);
+  const totalTokens = llmResult.inputTokens + llmResult.outputTokens;
+  const runCostUsd = estimateCostUsd(llmResult.model, llmResult.inputTokens, llmResult.outputTokens);
 
   const parsed = parseModelOutput(llmResult.text, {
     name: agent.name,
@@ -134,8 +160,8 @@ export async function runAgent(params: AgentRunnerParams): Promise<AgentRunResul
       outputSummary: summarize(parsed.cleanText),
       gateId: gateIds[0] ?? null,
       modelUsed: llmResult.model,
-      tokensUsed: llmResult.inputTokens + llmResult.outputTokens,
-      costUsd: null,
+      tokensUsed: totalTokens,
+      costUsd: String(runCostUsd),
       durationMs,
     })
     .returning({ id: skillRuns.id });
@@ -164,6 +190,22 @@ export async function runAgent(params: AgentRunnerParams): Promise<AgentRunResul
 
   await rotateSkillRunContext(params.companyId, agent.name);
 
+  await activity.write({
+    companyId: params.companyId,
+    eventType: 'skill_run',
+    actor: agent.name,
+    summary: `${agent.name} ran /${skill.name}`,
+    agentName: agent.name,
+    skillName: skill.name,
+    metadata: {
+      model: llmResult.model,
+      tokens: totalTokens,
+      costUsd: runCostUsd,
+      durationMs,
+      gates: gateIds.length,
+    },
+  });
+
   return {
     artifacts: parsed.artifacts,
     memoryUpdates: parsed.memoryUpdates,
@@ -174,6 +216,40 @@ export async function runAgent(params: AgentRunnerParams): Promise<AgentRunResul
     rawOutput: parsed.cleanText,
     llm: llmResult,
   };
+  } catch (error) {
+    await activity.write({
+      companyId: params.companyId,
+      eventType: 'run_error',
+      actor: agent.name,
+      summary: `Run failed for ${agent.name}/${skill.name}`,
+      agentName: agent.name,
+      skillName: skill.name,
+      metadata: {
+        error: String(error),
+      },
+    });
+
+    logger.error(
+      {
+        companyId: params.companyId,
+        agent: agent.name,
+        skill: skill.name,
+        error: String(error),
+      },
+      'agent.run.error',
+    );
+    throw error;
+  } finally {
+    logger.info(
+      {
+        companyId: params.companyId,
+        agent: agent.name,
+        skill: skill.name,
+        durationMs: Date.now() - startedAt,
+      },
+      'agent.run.finish',
+    );
+  }
 }
 
 function resolveSkill(

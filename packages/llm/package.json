@@ -14,7 +14,8 @@
     "@aws-sdk/client-bedrock-runtime": "^3.888.0",
     "@google/generative-ai": "^0.21.0",
     "@mistralai/mistralai": "^1.5.2",
-    "openai": "^4.104.0"
+    "openai": "^4.104.0",
+    "pino": "^9.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",

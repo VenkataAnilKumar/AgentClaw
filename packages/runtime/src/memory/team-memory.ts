@@ -1,7 +1,8 @@
 import { and, asc, eq } from 'drizzle-orm';
 
-import { db, teamMemory } from '@agentclaw/db';
+import { db, teamMemory, teamMemoryAudit } from '@agentclaw/db';
 import type { JsonValue, MemoryUpdate, TeamMemoryRow } from '@agentclaw/shared';
+import { ActivityFeedService } from '../activity/feed-service.js';
 
 export class TeamMemory {
   constructor(private readonly companyId: string) {}
@@ -18,7 +19,13 @@ export class TeamMemory {
     return row ? mapRow(row) : null;
   }
 
-  async set(category: string, key: string, value: JsonValue, agentName: string): Promise<void> {
+  async set(
+    category: string,
+    key: string,
+    value: JsonValue,
+    actorName: string,
+    source: 'agent' | 'human' = 'agent',
+  ): Promise<void> {
     await db
       .insert(teamMemory)
       .values({
@@ -26,16 +33,39 @@ export class TeamMemory {
         category,
         key,
         value,
-        writtenByAgent: agentName,
+        writtenByAgent: actorName,
       })
       .onConflictDoUpdate({
         target: [teamMemory.companyId, teamMemory.category, teamMemory.key],
         set: {
           value,
-          writtenByAgent: agentName,
+          writtenByAgent: actorName,
           updatedAt: new Date(),
         },
       });
+
+    await db.insert(teamMemoryAudit).values({
+      companyId: this.companyId,
+      category,
+      key,
+      actor: actorName,
+      source,
+      action: 'set',
+      summary: summarizeValue(value),
+    });
+
+    const activity = new ActivityFeedService();
+    await activity.write({
+      companyId: this.companyId,
+      eventType: 'memory_update',
+      actor: actorName,
+      summary: `${source === 'agent' ? actorName : `@${actorName}`} updated ${category}.${key}`,
+      metadata: {
+        category,
+        key,
+        source,
+      },
+    });
   }
 
   async getAll(category?: string): Promise<TeamMemoryRow[]> {
@@ -59,6 +89,11 @@ export class TeamMemory {
       await this.set(parsed.category, parsed.key, update.value, agentName);
     }
   }
+}
+
+function summarizeValue(value: JsonValue): string {
+  const raw = typeof value === 'string' ? value : JSON.stringify(value);
+  return raw.length > 200 ? `${raw.slice(0, 200)}...` : raw;
 }
 
 function parseScopedMemoryKey(key: string): { category: string; key: string } | null {

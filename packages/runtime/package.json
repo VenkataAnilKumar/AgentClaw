@@ -15,7 +15,8 @@
     "@agentclaw/shared": "workspace:*",
     "@agentclaw/skills-registry": "workspace:*",
     "drizzle-orm": "^0.38.4",
-    "node-cron": "^3.0.3"
+    "node-cron": "^3.0.3",
+    "pino": "^9.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",

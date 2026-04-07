@@ -32,6 +32,18 @@ export const gateStatusEnum = pgEnum('gate_status', [
   'rejected',
 ]);
 
+export const activityEventTypeEnum = pgEnum('activity_event_type', [
+  'skill_run',
+  'gate_created',
+  'gate_approved',
+  'gate_rejected',
+  'run_error',
+  'memory_update',
+  'skill_installed',
+  'member_invited',
+  'heartbeat_run',
+]);
+
 export const companies = pgTable('companies', {
   id: uuid('id').defaultRandom().primaryKey(),
   slug: text('slug').notNull().unique(),
@@ -97,6 +109,30 @@ export const teamMemory = pgTable(
       table.companyId,
       table.category,
       table.key,
+    ),
+  }),
+);
+
+export const teamMemoryAudit = pgTable(
+  'team_memory_audit',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    category: text('category').notNull(),
+    key: text('key').notNull(),
+    actor: text('actor').notNull(),
+    source: text('source').notNull(),
+    action: text('action').notNull().default('set'),
+    summary: text('summary').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    companyIdx: index('team_memory_audit_company_id_idx').on(table.companyId),
+    companyCreatedIdx: index('team_memory_audit_company_created_at_idx').on(
+      table.companyId,
+      table.createdAt,
     ),
   }),
 );
@@ -247,6 +283,28 @@ export const heartbeatRuns = pgTable(
   }),
 );
 
+export const activityFeed = pgTable(
+  'activity_feed',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    eventType: activityEventTypeEnum('event_type').notNull(),
+    agentName: text('agent_name'),
+    skillName: text('skill_name'),
+    actor: text('actor').notNull(),
+    summary: text('summary').notNull(),
+    metadata: jsonb('metadata').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    companyIdx: index('activity_feed_company_id_idx').on(table.companyId),
+    companyTypeIdx: index('activity_feed_company_event_type_idx').on(table.companyId, table.eventType),
+    companyCreatedIdx: index('activity_feed_company_created_at_idx').on(table.companyId, table.createdAt),
+  }),
+);
+
 export const companySecrets = pgTable(
   'company_secrets',
   {
@@ -264,6 +322,25 @@ export const companySecrets = pgTable(
   }),
 );
 
+export const companyBudgets = pgTable(
+  'company_budgets',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' })
+      .unique(),
+    monthlyUsd: numeric('monthly_usd', { precision: 12, scale: 2 }).notNull().default('0'),
+    currency: text('currency').notNull().default('USD'),
+    alert80SentAt: timestamp('alert_80_sent_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    companyIdx: index('company_budgets_company_id_idx').on(table.companyId),
+  }),
+);
+
 export const bootstrapFiles = pgTable(
   'bootstrap_files',
   {
@@ -278,6 +355,43 @@ export const bootstrapFiles = pgTable(
   (table) => ({
     companyIdx: index('bootstrap_files_company_id_idx').on(table.companyId),
     companyFileUnique: unique('bootstrap_files_company_file_unique').on(table.companyId, table.fileName),
+  }),
+);
+
+// ── Phase 4: Slack OAuth Multi-Workspace ───────────────────────────────────
+
+export const slackInstallations = pgTable(
+  'slack_installations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    teamId: text('team_id').notNull().unique(),
+    teamName: text('team_name').notNull(),
+    botToken: text('bot_token').notNull(),
+    botUserId: text('bot_user_id'),
+    appId: text('app_id'),
+    authedUserId: text('authed_user_id'),
+    installedAt: timestamp('installed_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    companyIdx: index('slack_installations_company_id_idx').on(table.companyId),
+  }),
+);
+
+export const slackOauthStates = pgTable(
+  'slack_oauth_states',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    state: text('state').notNull().unique(),
+    redirectUri: text('redirect_uri').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (table) => ({
+    expiresIdx: index('slack_oauth_states_expires_at_idx').on(table.expiresAt),
   }),
 );
 

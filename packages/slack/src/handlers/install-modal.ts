@@ -5,6 +5,7 @@ import { SKILL_CATALOG, findSkill } from '@agentclaw/skills-registry';
 export function registerInstallModalHandler(
   app: App,
   registry: SkillRegistryService,
+  resolveCompanyId?: (teamId: string) => Promise<string>,
 ): void {
   // View submission: user clicked "Install" inside the modal
   app.view('skill_install_modal', async ({ ack, view, body, client }) => {
@@ -22,7 +23,8 @@ export function registerInstallModalHandler(
       secrets[secretKey] = value;
     }
 
-    const companyId = body.team?.id ?? '';
+    const teamId = body.team?.id ?? '';
+    const companyId = resolveCompanyId ? await resolveCompanyId(teamId) : teamId;
     try {
       await registry.install(companyId, skillName, secrets);
       await client.chat.postEphemeral({
@@ -43,7 +45,8 @@ export function registerInstallModalHandler(
   app.action('skill_remove', async ({ ack, body, action, client }) => {
     await ack();
     const skillName = (action as { value?: string }).value ?? '';
-    const companyId = body.team?.id ?? '';
+    const teamId = body.team?.id ?? '';
+    const companyId = resolveCompanyId ? await resolveCompanyId(teamId) : teamId;
     try {
       await registry.uninstall(companyId, skillName);
       await client.chat.postEphemeral({

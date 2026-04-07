@@ -6,4 +6,7 @@ export * from './skills/index.js';
 export * from './heartbeat/index.js';
 export * from './gates/index.js';
 export * from './router/index.js';
+export * from './team/member-service.js';
+export * from './activity/feed-service.js';
+export * from './costs/cost-service.js';
 export * from './agent-runner.js';

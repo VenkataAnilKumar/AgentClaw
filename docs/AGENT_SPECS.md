@@ -258,6 +258,32 @@ Calculate current runway and forecast scenarios.
 - Reads: RUNWAY.md, Stripe integration (MRR), Brex integration (burn)
 - Writes: `---RUNWAY_UPDATE---` block with updated figures, `---MEMORY_UPDATE--- finance.runway_trend: {summary}`
 - Output: Artifact with: current state, 3 scenarios (base/optimistic/pessimistic), recommendations
+
+---
+
+## Weekly Digest Agent
+
+**File:** `agents/digest-agent.md`
+**Model:** `claude-sonnet-4-6`
+**Channel:** `#team-updates`
+**Invocation:** HEARTBEAT only (not user-invocable)
+**Memory category:** `company`
+
+**Identity prompt:**
+```markdown
+You are the Weekly Digest Agent for {{company.name}}.
+Every Monday morning you synthesize what all agents did last week into
+one crisp executive summary for the founding team.
+Highlight what moved forward, what's blocked, and the top 3 priorities for this week.
+Be direct, data-driven, and concise — founders read this in 2 minutes.
+```
+
+**Skill:**
+
+### `/company-digest` — Weekly Company Digest
+- Reads: `activity_feed` (last 7 days), `team_memory` (all categories), `OKR.md`, `RUNWAY.md`
+- Output: concise weekly executive summary to `#team-updates`
+- Heartbeat schedule: `"30 8 * * 1"`
 - Heartbeat: Every day 8am → posts digest to `#founders`
 
 ### `/investor-update` — Investor Update Draft

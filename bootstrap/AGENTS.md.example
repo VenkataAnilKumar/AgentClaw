@@ -45,3 +45,13 @@
 - Status: inactive
 - Route when: legal, contract, NDA, agreement, terms, privacy, IP, equity, SAFE, cap table
 - Gates: legal (all documents before sending externally)
+
+## digest-agent
+- Channel: #team-updates
+- Model: anthropic/claude-sonnet-4-6
+- Fallback: openai/gpt-4o, google/gemini-2.0-flash
+- Skills: company-digest
+- Memory category: company
+- Status: active
+- Route when:
+- Gates:

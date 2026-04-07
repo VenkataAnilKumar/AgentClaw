@@ -2,6 +2,7 @@ import cron, { type ScheduledTask } from 'node-cron';
 
 import { db, heartbeatRuns } from '@agentclaw/db';
 import type { HeartbeatEntry, HeartbeatSchedule } from '@agentclaw/shared';
+import { ActivityFeedService } from '../activity/feed-service.js';
 
 type RunHeartbeatAgent = (params: {
   companyId: string;
@@ -89,6 +90,19 @@ export class HeartbeatScheduler {
       skillName: entry.skillName,
       status,
       runAt: new Date(),
+    });
+
+    const activity = new ActivityFeedService();
+    await activity.write({
+      companyId,
+      eventType: 'heartbeat_run',
+      actor: 'heartbeat',
+      agentName: entry.agentName,
+      skillName: entry.skillName,
+      summary: `HEARTBEAT ${entry.agentName}/${entry.skillName}: ${status}`,
+      metadata: {
+        cron: entry.cron,
+      },
     });
   }
 

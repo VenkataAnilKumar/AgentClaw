@@ -1,5 +1,12 @@
 # Heartbeat Schedule — Acme AI
 
+## Weekly Company Digest
+- agent: digest-agent
+- skill: company-digest
+- schedule: "30 8 * * 1"
+- channel: "#team-updates"
+- description: Every Monday 8:30am — executive summary across all agent activity and company memory
+
 ## Weekly GTM Digest
 - agent: gtm-agent
 - skill: weekly-digest

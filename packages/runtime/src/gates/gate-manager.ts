@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 
 import { companyMembers, db, humanGates } from '@agentclaw/db';
 import type { GateType, HumanGateRequest, MemberRole } from '@agentclaw/shared';
+import { ActivityFeedService } from '../activity/feed-service.js';
 
 export class GateManager {
   async createGate(companyId: string, agentName: string, gate: HumanGateRequest): Promise<string> {
@@ -21,6 +22,19 @@ export class GateManager {
     if (!gateId) {
       throw new Error('Failed to create human gate');
     }
+
+    const activity = new ActivityFeedService();
+    await activity.write({
+      companyId,
+      eventType: 'gate_created',
+      actor: agentName,
+      agentName,
+      summary: `${agentName} requested ${gate.type} approval`,
+      metadata: {
+        gateId,
+        title: gate.title,
+      },
+    });
 
     return gateId;
   }
@@ -66,6 +80,20 @@ export class GateManager {
           eq(humanGates.companyId, gate.companyId),
         ),
       );
+
+    const activity = new ActivityFeedService();
+    await activity.write({
+      companyId: gate.companyId,
+      eventType: decision === 'approved' ? 'gate_approved' : 'gate_rejected',
+      actor: slackUserId,
+      agentName: gate.agentName,
+      summary: `${slackUserId} ${decision} ${gate.gateType} gate`,
+      metadata: {
+        gateId,
+        gateType: gate.gateType,
+        reason: reason ?? null,
+      },
+    });
   }
 
   async hasPendingGate(companyId: string, agentName: string): Promise<boolean> {

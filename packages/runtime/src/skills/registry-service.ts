@@ -8,6 +8,7 @@ import type {
   SkillPackageManifest,
 } from '@agentclaw/shared';
 import { SKILL_CATALOG, findSkill } from '@agentclaw/skills-registry';
+import { ActivityFeedService } from '../activity/feed-service.js';
 
 export class SkillRegistryService {
   // ── Queries ───────────────────────────────────────────────────────────────
@@ -58,6 +59,7 @@ export class SkillRegistryService {
     companyId: string,
     skillName: string,
     secrets: Record<string, string>,
+    actor = 'system',
   ): Promise<InstalledSkillRecord> {
     const manifest = findSkill(skillName);
     if (!manifest) throw new Error(`Unknown skill: ${skillName}`);
@@ -97,6 +99,18 @@ export class SkillRegistryService {
 
     // Store secrets
     await this.saveSecrets(companyId, secrets);
+
+    const activity = new ActivityFeedService();
+    await activity.write({
+      companyId,
+      eventType: 'skill_installed',
+      actor,
+      summary: `${skillName} installed`,
+      skillName,
+      metadata: {
+        integrations: manifest.requiredIntegrations,
+      },
+    });
 
     return rowToRecord(row);
   }
